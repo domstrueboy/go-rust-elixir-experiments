@@ -2,20 +2,20 @@ package main
 
 import (
 	"fmt"
-	"strings"
 )
 
-func missing(input []string) string {
-	const alphabet = "abcdefghijklmnopqrstuvwxyz"
-	const length = len(alphabet)
-	for i := 0; i < length; i++ {
-		fmt.Println(string(alphabet[i]))
+func missing(input []rune) string {
+	start := int(input[0])
+	for i, j := 0, start; i < 32; i, j = i+1, j+1 {
+		if int(input[i]) != j {
+			return string(j)
+		}
 	}
-	output := strings.Join(input[:], ":")
-	return output
+	return ""
 }
 
 func main() {
-	letter := missing([]string{"a", "b", "c", "d", "f", "g"})
-	fmt.Println(letter)
+	letter := missing([]rune{'a', 'b', 'c', 'd', 'f', 'g', 'h'})
+	letter2 := missing([]rune{'O', 'Q', 'R', 'S'})
+	fmt.Println(letter, letter2)
 }
