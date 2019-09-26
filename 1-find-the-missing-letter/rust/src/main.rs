@@ -1,7 +1,7 @@
 fn main() {
     println!("Hello, world!");
     let letter = missing([]rune{'a', 'b', 'c', 'd', 'f', 'g', 'h'});
-	let letter2 := missing([]rune{'O', 'Q', 'R', 'S'})
+	let letter2 = missing([]rune{'O', 'Q', 'R', 'S'})
 	println!(letter, letter2);
 }
 
