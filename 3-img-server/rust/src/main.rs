@@ -14,5 +14,8 @@ fn main() {
     println!("{:?}", img.color());
 
     // Write the contents of this image to the Writer in PNG format.
-    img.save("img/output/progressive.png").unwrap();
+    img
+    .resize(160, 90, image::imageops::Lanczos3)
+    .save("img/output/progressive.jpg")
+    .unwrap();
 }
