@@ -1,67 +1,73 @@
-#![deny(warnings)]
+extern crate chunked_transfer;
+use std::net::{TcpListener, TcpStream};
+use std::io::{Read, Write};
+use std::thread;
+use std::fs::File;
+use chunked_transfer::Encoder;
 
-use futures_util::TryStreamExt;
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
 
-/// This is our service handler. It receives a Request, routes on its
-/// path, and returns a Future of a Response.
-async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    match (req.method(), req.uri().path()) {
-        // Serve some instructions at /
-        (&Method::GET, "/") => Ok(Response::new(Body::from(
-            "Try POSTing data to /echo such as: `curl localhost:3000/echo -XPOST -d 'hello world'`",
-        ))),
+fn main() {
+    let listener = TcpListener::bind("127.0.0.1:3000").unwrap();
 
-        // Simply echo the body back to the client.
-        (&Method::POST, "/echo") => Ok(Response::new(req.into_body())),
-
-        // Convert to uppercase before sending back to client using a stream.
-        (&Method::POST, "/echo/uppercase") => {
-            let chunk_stream = req.into_body().map_ok(|chunk| {
-                chunk
-                    .iter()
-                    .map(|byte| byte.to_ascii_uppercase())
-                    .collect::<Vec<u8>>()
-            });
-            Ok(Response::new(Body::wrap_stream(chunk_stream)))
-        }
-
-        // Reverse the entire body before sending back to the client.
-        //
-        // Since we don't know the end yet, we can't simply stream
-        // the chunks as they arrive as we did with the above uppercase endpoint.
-        // So here we do `.await` on the future, waiting on concatenating the full body,
-        // then afterwards the content can be reversed. Only then can we return a `Response`.
-        (&Method::POST, "/echo/reversed") => {
-            let whole_body = hyper::body::to_bytes(req.into_body()).await?;
-
-            let reversed_body = whole_body.iter().rev().cloned().collect::<Vec<u8>>();
-            Ok(Response::new(Body::from(reversed_body)))
-        }
-
-        // Return the 404 Not Found for other routes.
-        _ => {
-            let mut not_found = Response::default();
-            *not_found.status_mut() = StatusCode::NOT_FOUND;
-            Ok(not_found)
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                thread::spawn(|| handle_client(stream));
+            }
+            Err(e) => println!("Unable to connect: {}", e),
         }
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let addr = ([127, 0, 0, 1], 3000).into();
+fn get_path(mut stream: &TcpStream) -> String {
+    let mut buf = [0u8; 4096];
+    match stream.read(&mut buf) {
+        Ok(_) => {
+            let req_str = String::from_utf8_lossy(&buf);
+            let path: Vec<&str> = req_str.lines().next().unwrap().split(" ").collect();
+            println!("GET {}", path[1]);
+            // println!("{}", req_str);
+            path[1].to_string()
+        }
+        Err(e) => {
+            println!("Unable to read stream: {}", e);
+            "/".to_string()
+        }
+    }
+}
 
-    let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(echo)) });
+fn response(path: &str, mut stream: TcpStream) {
+    let file_path = format!("img/input/{}", path);
 
-    let server = Server::bind(&addr).serve(service);
+    let mut buf = Vec::new();
+    let mut file = File::open(&file_path).unwrap();
+    file.read_to_end(&mut buf).unwrap();
 
-    println!("Listening on http://{}", addr);
+    let mut encoded = Vec::new();
+    {
+        let mut encoder = Encoder::with_chunks_size(&mut encoded, 8);
+        encoder.write_all(&buf).unwrap();
+    }
 
-    server.await?;
+    let headers = [
+        "HTTP/1.1 200 OK",
+        "Content-type: image/jpeg",
+        "Transfer-Encoding: chunked",
+        "\r\n"
+    ];
+    let mut response = headers.join("\r\n")
+        .to_string()
+        .into_bytes();
+    response.extend(encoded);
 
-    Ok(())
+    match stream.write(&response) {
+        Ok(_) => println!("Response sent"),
+        Err(e) => println!("Failed sending response: {}", e),
+    }
+}
+
+fn handle_client(stream: TcpStream) {
+    response(&get_path(&stream), stream);
 }
 
 // extern crate image;
