@@ -25,8 +25,6 @@ fn get_path(mut stream: &TcpStream) -> String {
         Ok(_) => {
             let req_str = String::from_utf8_lossy(&buf);
             let path: Vec<&str> = req_str.lines().next().unwrap().split(" ").collect();
-            println!("GET {}", path[1]);
-            // println!("{}", req_str);
             path[1].to_string()
         }
         Err(e) => {
@@ -37,10 +35,23 @@ fn get_path(mut stream: &TcpStream) -> String {
 }
 
 fn response(path: &str, mut stream: TcpStream) {
+    println!("{}", path);
+    let file_params: Vec<&str> = path.split(['/', '_', '.'].as_ref()).collect();
+
+    let name = file_params[0];
+    let width = file_params[1];
+    let height = file_params[2];
+    let height = file_params[2];
+    
+    // for s in file_params {
+    //     println!("{}", s);
+    // }
+    
     let file_path = format!("img/input/{}", path);
 
     let mut buf = Vec::new();
     let mut file = File::open(&file_path).unwrap();
+    
     file.read_to_end(&mut buf).unwrap();
 
     let mut encoded = Vec::new();
