@@ -5,6 +5,8 @@ use std::thread;
 use std::fs::File;
 use chunked_transfer::Encoder;
 
+extern crate image;
+use image::GenericImageView;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:3000").unwrap();
@@ -43,14 +45,26 @@ fn response(path: &str, mut stream: TcpStream) {
     let height = file_params[2];
     let height = file_params[2];
     
-    // for s in file_params {
-    //     println!("{}", s);
-    // }
-    
     let file_path = format!("img/input/{}", path);
 
     let mut buf = Vec::new();
-    let mut file = File::open(&file_path).unwrap();
+    // let mut file = File::open(&file_path).unwrap();
+
+    let mut file = match File::open(&file_path) {
+        Ok(file) => file,
+        Err(e) => {
+            let img = image::open("img/input/progressive.jpg").unwrap();
+            img
+            .resize(160, 90, image::imageops::Lanczos3)
+            .save("img/output/progressive.jpg")
+            .unwrap();
+
+            let file_path2 = format!("img/output/progressive.jpg");
+            let mut file = File::open(&file_path2).unwrap();
+
+            return file;
+        },
+    };
     
     file.read_to_end(&mut buf).unwrap();
 
@@ -80,10 +94,6 @@ fn response(path: &str, mut stream: TcpStream) {
 fn handle_client(stream: TcpStream) {
     response(&get_path(&stream), stream);
 }
-
-// extern crate image;
-
-// use image::GenericImageView;
 
 // fn main() {
 //     let img = image::open("img/input/progressive.jpg").unwrap();
