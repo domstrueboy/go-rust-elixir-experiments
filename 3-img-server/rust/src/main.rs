@@ -60,9 +60,10 @@ fn response(path: &str, mut stream: TcpStream) {
             .unwrap();
 
             let file_path2 = format!("img/output/progressive.jpg");
-            let mut file = File::open(&file_path2).unwrap();
 
-            return file;
+            let mut file2 = File::open(&file_path2).unwrap();
+
+            return file2;
         },
     };
     
